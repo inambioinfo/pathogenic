@@ -172,7 +172,7 @@ def parse_vcfs(vcf_generator, PASS=True):
                     )
             for field in csq_fields:
                 vcf_list[v_id][field] = getattr(csq, field)
-    print(pd.DataFrame(vcf_list).T['CLIN_SIG'])
+    print(pd.DataFrame(vcf_list).T)
 
 
 if __name__ == '__main__':
