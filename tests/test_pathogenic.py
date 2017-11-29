@@ -22,17 +22,19 @@ class TestCase(unittest.TestCase):
         pass
 
     def test_get_vcfs(self):
-        grange = '1:94484000-94484001'
+        grange = '1:94476950-94476951'
         result = list(get_vcfs(self.gnomad_path,self.fasta_ref,grange))
-        self.assertEqual(result[1].split('\t')[2],'rs778234759')
-        grange = '1:94461665-94461666'
-        result = list(get_vcfs(self.gnomad_path,self.fasta_ref,grange))
-        self.assertEqual(result[0].split('\t')[2],'rs761134287')
+        vcf_string = '##fileformat=VCFv'
+        self.assertTrue(result[1].split('\n')[0].startswith(vcf_string))
     def test_parse_vcfs(self):
         grange = '1:94476900-94477000'
-        vcfs = get_vcfs(self.gnomad_path,self.fasta_ref,grange)
-        result = parse_vcfs(vcfs)
-        print(result)
+        data = get_vcfs(self.gnomad_path,self.fasta_ref,grange)
+        data = parse_vcfs(data)
+        self.assertEqual(data.loc['1-94476951-A-G']['ID'],'rs1800728')
+        self.assertEqual(
+                data.loc['1-94476951-A-G']['CLIN_SIG'],
+                'uncertain_significance&likely_pathogenic'
+                )
 
 if __name__ == '__main__':
     unittest.main()

@@ -137,7 +137,7 @@ def parse_vcfs(vcf_generator, PASS=True):
 
             # get FILTER and ID. replace ID's '.' with None
             vcf_list[v_id]['FILTER'] = record.FILTER
-            vcf_list[v_id]['ID'] = record.ID != '.' or None
+            vcf_list[v_id]['ID'] = record.ID if record.ID != '.' else None
 
             # deal with pop info
             info = record.INFO.split(';')
@@ -172,14 +172,22 @@ def parse_vcfs(vcf_generator, PASS=True):
                     )
             for field in csq_fields:
                 vcf_list[v_id][field] = getattr(csq, field)
-    print(pd.DataFrame(vcf_list).T.CLIN_SIG)
+    return pd.DataFrame(vcf_list).T
 
+def get_clin_sig(data):
+    return data[data.CLIN_SIG.str.contains('pathogenic')]
+
+def main(gnomad_path,fasta_ref,grange):
+    data = get_vcfs(gnomad_path,fasta_ref,grange)
+    data = parse_vcfs(data)
+    data = get_clin_sig(data)
+    print(data)
 
 if __name__ == '__main__':
     gnomad_path = '/media/jing/18117A5842B23232/db/gnomAD/release-170228'
     grange = '1:94458393-94586688'
     clinvar_file = '/media/jing/18117A5842B23232/db/clinvar/clinvar_20171029.vcf.gz'
     fasta_ref = '/media/jing/18117A5842B23232/db/human_g1k_v37.fasta'
-    
-    vcfs = get_vcfs(gnomad_path,fasta_ref,grange)
-    result = parse_vcfs(vcfs)
+
+    main(gnomad_path,fasta_ref,grange)
+    print('===done===')
