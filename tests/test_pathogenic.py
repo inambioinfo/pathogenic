@@ -1,12 +1,22 @@
 import unittest
 import os
 from pathogenic import *
+import subprocess
 
 class TestCase(unittest.TestCase):
     def setUp(self):
-        self.gnomad_path = '/media/jing/18117A5842B23232/db/gnomAD/'+\
-            'release-170228'
-        self.fasta_ref = '/media/jing/18117A5842B23232/db/human_g1k_v37.fasta'
+        self.gnomad_path = 'tests/data/gnomad'
+        fasta_gz = 'tests/data/chrom1.fasta.gz'
+        self.fasta_ref = 'tests/data/chrom1.fasta'
+        if not os.path.isfile(self.fasta_ref):
+            with open('tests/data/chrom1.fasta','w') as outf:
+                subprocess.run((
+                        'gunzip',
+                        '-c',
+                        fasta_gz,
+                        ),stdout = outf)
+                
+
 
     def tearDown(self):
         pass
