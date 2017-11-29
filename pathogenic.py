@@ -8,9 +8,10 @@ python3
 import sys
 import re
 import subprocess
+import itertools
 sys.path.append('../gnomad')
 import os
-from collections import defaultdict
+from collections import defaultdict,namedtuple
 import pandas as pd
 
 def split_iter(string):
@@ -73,7 +74,7 @@ def get_vcfs(gnomad_path, fasta_ref, grange):
     
     return (pl(f) for f in files.values())
 
-def parse_vcfs(vcf_generator):
+def parse_vcfs(vcf_generator, PASS=True):
     '''
     return a pd.DataFrame, with variant ids on the index column
     columns:
@@ -82,22 +83,96 @@ def parse_vcfs(vcf_generator):
     male_ac/an/hom, female_ac/an/hom, 
 
     ignore asj for the time being as it is missing in exome
+
+    if PASS is True, only look at variants that pass the filter.
     '''
     vcf_list = defaultdict(dict)
+
+    # get info fields to extract
+    info_fields = (
+            'AC',
+            'AN',
+            'AF',
+            'Hom',
+            )
+    pop = (
+            'AFR',
+            'AMR',
+            'EAS',
+            'FIN',
+            'NFE',
+            'OTH',
+            'SAS',
+            'Male',
+            'Female',
+            )
+    pop_info = ('_'.join(i) for i in itertools.product(info_fields,pop))
+    info_fields = info_fields + tuple(pop_info)
     for gg in vcf_generator:
-        header = []
         for row in split_iter(gg):
-            # skip comments and get header
-            if row.startswith('##'): continue
+            # skip comments and get row header and CSQ header
+            if row.startswith('##'):
+                if row.startswith('##INFO=<ID=CSQ'):
+                    header = row.split('"')[1].split('Format: ')[1].split('|')
+                    CSQ = namedtuple('CSQ',header)
+                continue
             row = row.split('\t')
             if row[0].startswith('#'):
                 header = row
-                print(header)
+                # convert header into a namedtuple class
+                header[0] = header[0][1:]
+                Record = namedtuple('Record',header)
                 continue
-            v_id = '-'.join([row[0],row[1],row[3],row[4]])
-            for field in ('filter','id'):
-                vcf_list[v_id][field] = row[header.index(field.upper())]
-    print(vcf_list)
+            record = Record(*row)
+            # not interested in variants that don't pass the filter
+            if PASS and record.FILTER != 'PASS': continue
+
+            # get variant_id
+            v_id = '-'.join((
+                record.CHROM,
+                record.POS,
+                record.REF,
+                record.ALT,
+                ))
+
+            # get FILTER and ID. replace ID's '.' with None
+            vcf_list[v_id]['FILTER'] = record.FILTER
+            vcf_list[v_id]['ID'] = record.ID != '.' or None
+
+            # deal with pop info
+            info = record.INFO.split(';')
+            info_dict = {}
+            for i in info:
+                if '=' not in i: continue
+                ii = i.split('=')
+                info_dict[ii[0]] = ii[1]
+            for pop in info_fields:
+                if pop in info_dict:
+                    if 'AF' in pop:
+                        vcf_list[v_id][pop] = float(info_dict[pop])
+                    else:
+                        vcf_list[v_id][pop] = int(info_dict[pop])
+                else:
+                    vcf_list[v_id][pop] = None
+
+            # deal with CSQ. only parse the first annotation.
+            first_csq = info_dict['CSQ'].split(',')[0].split('|')
+            csq = CSQ(*first_csq)
+            csq_fields = (
+                    'Consequence',
+                    'IMPACT',
+                    'SYMBOL',
+                    'Gene',
+                    'Feature',
+                    'HGVSc',
+                    'HGVSp',
+                    'EXON',
+                    'INTRON',
+                    'CLIN_SIG',
+                    )
+            for field in csq_fields:
+                vcf_list[v_id][field] = getattr(csq, field)
+    print(pd.DataFrame(vcf_list).T['CLIN_SIG'])
 
 
 if __name__ == '__main__':
@@ -105,3 +180,6 @@ if __name__ == '__main__':
     grange = '1:94458393-94586688'
     clinvar_file = '/media/jing/18117A5842B23232/db/clinvar/clinvar_20171029.vcf.gz'
     fasta_ref = '/media/jing/18117A5842B23232/db/human_g1k_v37.fasta'
+    
+    vcfs = get_vcfs(gnomad_path,fasta_ref,grange)
+    result = parse_vcfs(vcfs)
