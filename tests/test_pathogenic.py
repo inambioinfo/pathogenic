@@ -29,7 +29,7 @@ class TestCase(unittest.TestCase):
         result = list(get_vcfs(self.gnomad_path,self.fasta_ref,grange))
         self.assertEqual(result[0].split('\t')[2],'rs761134287')
     def test_parse_vcfs(self):
-        grange = '1:94461636-94461666'
+        grange = '1:94476900-94477000'
         vcfs = get_vcfs(self.gnomad_path,self.fasta_ref,grange)
         result = parse_vcfs(vcfs)
         print(result)
